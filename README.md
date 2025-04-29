@@ -1,4 +1,4 @@
-# IMAP-RECON Documentation 🚀📧
+# IMAP-RECON Read me 🚀📧
 
 ## Overview
 
