@@ -18,11 +18,57 @@ import quopri
 from datetime import datetime
 from email.parser import BytesParser
 from email.policy import default
+from colorama import Fore, Style, init
+
+# Initialize colorama
+init(autoreset=True)
+
+def print_banner():
+    """Print a cool ASCII art banner with figlet style"""
+    banner = r"""
+ ██▓ ███▄ ▄███▓ ▄▄▄       ██▓███      ██▀███  ▓█████  ▄████▄   ▒█████   ███▄    █ 
+▓██▒▓██▒▀█▀ ██▒▒████▄    ▓██░  ██▒   ▓██ ▒ ██▒▓█   ▀ ▒██▀ ▀█  ▒██▒  ██▒ ██ ▀█   █ 
+▒██▒▓██    ▓██░▒██  ▀█▄  ▓██░ ██▓▒   ▓██ ░▄█ ▒▒███   ▒▓█    ▄ ▒██░  ██▒▓██  ▀█ ██▒
+░██░▒██    ▒██ ░██▄▄▄▄██ ▒██▄█▓▒ ▒   ▒██▀▀█▄  ▒▓█  ▄ ▒▓▓▄ ▄██▒▒██   ██░▓██▒  ▐▌██▒
+░██░▒██▒   ░██▒ ▓█   ▓██▒▒██▒ ░  ░   ░██▓ ▒██▒░▒████▒▒ ▓███▀ ░░ ████▓▒░▒██░   ▓██░
+░▓  ░ ▒░   ░  ░ ▒▒   ▓▒█░▒▓▒░ ░  ░   ░ ▒▓ ░▒▓░░░ ▒░ ░░ ░▒ ▒  ░░ ▒░▒░▒░ ░ ▒░   ▒ ▒ 
+ ▒ ░░  ░      ░  ▒   ▒▒ ░░▒ ░          ░▒ ░ ▒░ ░ ░  ░  ░  ▒     ░ ▒ ▒░ ░ ░░   ░ ▒░
+ ▒ ░░      ░     ░   ▒   ░░            ░░   ░    ░   ░        ░ ░ ░ ▒     ░   ░ ░ 
+ ░         ░         ░  ░               ░        ░  ░░ ░          ░ ░           ░ 
+                                                     ░                            
+                      made by grunt.ar
+"""
+    print(Fore.CYAN + banner + Style.RESET_ALL)
+    print(Fore.GREEN + "Version 1.1" + Style.RESET_ALL)
+    print(Fore.YELLOW + "=" * 80 + Style.RESET_ALL)
+    print()
 
 
-# Class to handle IMAP reconnaissance
+class Logger:
+    """Simple logging class with colored output"""
+    @staticmethod
+    def info(message):
+        print(f"{Fore.BLUE}[*]{Style.RESET_ALL} {message}")
+    
+    @staticmethod
+    def success(message):
+        print(f"{Fore.GREEN}[+]{Style.RESET_ALL} {message}")
+    
+    @staticmethod
+    def error(message):
+        print(f"{Fore.RED}[-]{Style.RESET_ALL} {message}")
+    
+    @staticmethod
+    def warning(message):
+        print(f"{Fore.YELLOW}[!]{Style.RESET_ALL} {message}")
+    
+    @staticmethod
+    def debug(message):
+        print(f"{Fore.MAGENTA}[D]{Style.RESET_ALL} {message}")
+
+
 class ImapRecon:
-    def __init__(self, host, port, username, password, ssl=False, output_dir=None):
+    def __init__(self, host, port, username, password, ssl=False, output_dir=None, verbose=False):
         self.host = host
         self.port = port
         self.username = username
@@ -31,6 +77,8 @@ class ImapRecon:
         self.connection = None
         self.mailboxes = []
         self.output_dir = output_dir or 'imap_recon_output'
+        self.verbose = verbose
+        self.logger = Logger()
         
         # Create output directory if it doesn't exist
         if not os.path.exists(self.output_dir):
@@ -49,14 +97,14 @@ class ImapRecon:
             else:
                 self.connection = imaplib.IMAP4(self.host, self.port)
             
-            print(f"[+] Connected to {self.host}:{self.port}")
+            self.logger.success(f"Connected to {self.host}:{self.port}")
             
             # Try to login
             self.connection.login(self.username, self.password)
-            print(f"[+] Successfully logged in as {self.username}")
+            self.logger.success(f"Successfully logged in as {self.username}")
             return True
         except Exception as e:
-            print(f"[-] Connection failed: {str(e)}")
+            self.logger.error(f"Connection failed: {str(e)}")
             return False
 
     def list_mailboxes(self):
@@ -64,25 +112,33 @@ class ImapRecon:
         try:
             status, mailboxes = self.connection.list()
             if status == 'OK':
-                print("[+] Available mailboxes:")
+                self.logger.success("Available mailboxes:")
                 for mailbox in mailboxes:
                     # Decode mailbox name
                     decoded_mailbox = mailbox.decode('utf-8')
-                    print(f"    {decoded_mailbox}")
+                    print(f"    {Fore.CYAN}{decoded_mailbox}{Style.RESET_ALL}")
                     self.mailboxes.append(decoded_mailbox)
                 
                 # Write mailboxes to file
-                with open(os.path.join(self.output_dir, 'mailboxes.txt'), 'w') as f:
-                    for mailbox in self.mailboxes:
-                        f.write(f"{mailbox}\n")
+                self._save_mailboxes_to_file()
                 
                 return True
             else:
-                print("[-] Failed to list mailboxes")
+                self.logger.error("Failed to list mailboxes")
                 return False
         except Exception as e:
-            print(f"[-] Error listing mailboxes: {str(e)}")
+            self.logger.error(f"Error listing mailboxes: {str(e)}")
             return False
+            
+    def _save_mailboxes_to_file(self):
+        """Save mailboxes to a file"""
+        try:
+            with open(os.path.join(self.output_dir, 'mailboxes.txt'), 'w') as f:
+                for mailbox in self.mailboxes:
+                    f.write(f"{mailbox}\n")
+            self.logger.success(f"Mailboxes saved to {os.path.join(self.output_dir, 'mailboxes.txt')}")
+        except Exception as e:
+            self.logger.error(f"Error saving mailboxes to file: {str(e)}")
 
     def decode_header(self, header):
         """Decode email header"""
@@ -151,39 +207,47 @@ class ImapRecon:
         attachments = []
         
         for part in msg.walk():
-            if part.get_content_maintype() == 'multipart':
-                continue
-            
-            filename = part.get_filename()
-            if not filename:
-                continue
-            
-            # Decode filename if needed
-            filename = self.decode_header(filename)
-            
-            # Clean filename to avoid path traversal
-            clean_filename = re.sub(r'[^\w\.-]', '_', filename)
-            
-            # Create directory for this email's attachments
-            email_attachment_dir = os.path.join(self.attachments_dir, f"{mailbox.replace('/', '_')}_{email_id}")
-            if not os.path.exists(email_attachment_dir):
-                os.makedirs(email_attachment_dir)
-            
-            file_path = os.path.join(email_attachment_dir, clean_filename)
-            
-            # Save the attachment
-            with open(file_path, 'wb') as f:
-                f.write(part.get_payload(decode=True))
-            
-            attachments.append({
-                "filename": filename,
-                "path": file_path,
-                "content_type": part.get_content_type()
-            })
-            
-            print(f"    [+] Saved attachment: {filename}")
+            try:
+                if part.get_content_maintype() == 'multipart':
+                    continue
+                
+                filename = part.get_filename()
+                if not filename:
+                    continue
+                
+                # Decode filename if needed
+                filename = self.decode_header(filename)
+                
+                # Clean filename to avoid path traversal
+                clean_filename = re.sub(r'[^\w\.-]', '_', filename)
+                
+                # Create directory for this email's attachments
+                email_attachment_dir = self._create_attachment_directory(mailbox, email_id)
+                
+                file_path = os.path.join(email_attachment_dir, clean_filename)
+                
+                # Save the attachment
+                with open(file_path, 'wb') as f:
+                    f.write(part.get_payload(decode=True))
+                
+                attachments.append({
+                    "filename": filename,
+                    "path": file_path,
+                    "content_type": part.get_content_type()
+                })
+                
+                self.logger.success(f"    Saved attachment: {filename}")
+            except Exception as e:
+                self.logger.error(f"    Error extracting attachment: {str(e)}")
         
         return attachments
+        
+    def _create_attachment_directory(self, mailbox, email_id):
+        """Create directory for email attachments"""
+        email_attachment_dir = os.path.join(self.attachments_dir, f"{mailbox.replace('/', '_')}_{email_id}")
+        if not os.path.exists(email_attachment_dir):
+            os.makedirs(email_attachment_dir)
+        return email_attachment_dir
 
     def analyze_email(self, mailbox, email_id, msg):
         """Analyze an email and extract relevant information"""
@@ -215,77 +279,104 @@ class ImapRecon:
             status, data = self.connection.select(mailbox_name)
             
             if status != 'OK':
-                print(f"[-] Could not select mailbox: {mailbox_name}")
+                self.logger.error(f"Could not select mailbox: {mailbox_name}")
                 return
             
             # Get the total number of emails
             email_count = int(data[0])
-            print(f"[+] Found {email_count} emails in {mailbox_name}")
+            self.logger.success(f"Found {email_count} emails in {mailbox_name}")
             
             if email_count == 0:
                 return
             
             # Create directory for this mailbox's emails
-            mailbox_dir = os.path.join(self.output_dir, mailbox_name.replace('/', '_'))
-            if not os.path.exists(mailbox_dir):
-                os.makedirs(mailbox_dir)
+            mailbox_dir = self._create_mailbox_directory(mailbox_name)
             
-            # Search for all emails in the mailbox
-            status, data = self.connection.search(None, 'ALL')
-            if status != 'OK':
-                print(f"[-] Failed to search emails in {mailbox_name}")
-                return
-            
-            # Process each email
-            email_ids = data[0].split()
-            for email_id in email_ids:
-                email_id_str = email_id.decode('utf-8')
-                print(f"[+] Processing email ID: {email_id_str}")
-                
-                # Fetch the email data
-                status, data = self.connection.fetch(email_id, '(RFC822)')
-                if status != 'OK':
-                    print(f"[-] Failed to fetch email ID: {email_id_str}")
-                    continue
-                
-                # Parse the email
-                raw_email = data[0][1]
-                msg = email.message_from_bytes(raw_email, policy=default)
-                
-                # Analyze the email
-                email_data = self.analyze_email(mailbox_name, email_id_str, msg)
-                
-                # Save the email data to a file
-                email_file = os.path.join(mailbox_dir, f"email_{email_id_str}.txt")
-                with open(email_file, 'w', encoding='utf-8') as f:
-                    f.write(f"ID: {email_data['id']}\n")
-                    f.write(f"Subject: {email_data['subject']}\n")
-                    f.write(f"From: {email_data['from']}\n")
-                    f.write(f"To: {email_data['to']}\n")
-                    f.write(f"CC: {email_data['cc']}\n")
-                    f.write(f"BCC: {email_data['bcc']}\n")
-                    f.write(f"Date: {email_data['date']}\n")
-                    f.write(f"Email Addresses: {', '.join(email_data['email_addresses'])}\n")
-                    f.write("\n--- TEXT CONTENT ---\n")
-                    f.write(email_data['content']['text'])
-                    f.write("\n\n--- HTML CONTENT ---\n")
-                    f.write(email_data['content']['html'])
-                    f.write("\n\n--- ATTACHMENTS ---\n")
-                    for attachment in email_data['attachments']:
-                        f.write(f"Filename: {attachment['filename']}\n")
-                        f.write(f"Path: {attachment['path']}\n")
-                        f.write(f"Content-Type: {attachment['content_type']}\n\n")
-                
-                # Save the raw email
-                raw_email_file = os.path.join(mailbox_dir, f"raw_email_{email_id_str}.eml")
-                with open(raw_email_file, 'wb') as f:
-                    f.write(raw_email)
-                
-                print(f"    [+] Saved email data to {email_file}")
-                print(f"    [+] Saved raw email to {raw_email_file}")
+            # Fetch and process emails
+            self._fetch_and_process_emails(mailbox_name, mailbox_dir)
 
         except Exception as e:
-            print(f"[-] Error processing mailbox {mailbox_name}: {str(e)}")
+            self.logger.error(f"Error processing mailbox {mailbox_name}: {str(e)}")
+            
+    def _create_mailbox_directory(self, mailbox_name):
+        """Create directory for mailbox emails"""
+        mailbox_dir = os.path.join(self.output_dir, mailbox_name.replace('/', '_'))
+        if not os.path.exists(mailbox_dir):
+            os.makedirs(mailbox_dir)
+        return mailbox_dir
+        
+    def _fetch_and_process_emails(self, mailbox_name, mailbox_dir):
+        """Fetch and process all emails in the mailbox"""
+        # Search for all emails in the mailbox
+        status, data = self.connection.search(None, 'ALL')
+        if status != 'OK':
+            self.logger.error(f"Failed to search emails in {mailbox_name}")
+            return
+        
+        # Process each email
+        email_ids = data[0].split()
+        for email_id in email_ids:
+            self._process_single_email(email_id, mailbox_name, mailbox_dir)
+    
+    def _process_single_email(self, email_id, mailbox_name, mailbox_dir):
+        """Process a single email"""
+        email_id_str = email_id.decode('utf-8')
+        self.logger.success(f"Processing email ID: {email_id_str}")
+        
+        try:
+            # Fetch the email data
+            status, data = self.connection.fetch(email_id, '(RFC822)')
+            if status != 'OK':
+                self.logger.error(f"Failed to fetch email ID: {email_id_str}")
+                return
+            
+            # Parse the email
+            raw_email = data[0][1]
+            msg = email.message_from_bytes(raw_email, policy=default)
+            
+            # Analyze the email
+            email_data = self.analyze_email(mailbox_name, email_id_str, msg)
+            
+            # Save the email data
+            self._save_email_data(email_data, raw_email, mailbox_dir, email_id_str)
+            
+        except Exception as e:
+            self.logger.error(f"Error processing email ID {email_id_str}: {str(e)}")
+    
+    def _save_email_data(self, email_data, raw_email, mailbox_dir, email_id_str):
+        """Save email data and raw email to files"""
+        try:
+            # Save the email data to a file
+            email_file = os.path.join(mailbox_dir, f"email_{email_id_str}.txt")
+            with open(email_file, 'w', encoding='utf-8') as f:
+                f.write(f"ID: {email_data['id']}\n")
+                f.write(f"Subject: {email_data['subject']}\n")
+                f.write(f"From: {email_data['from']}\n")
+                f.write(f"To: {email_data['to']}\n")
+                f.write(f"CC: {email_data['cc']}\n")
+                f.write(f"BCC: {email_data['bcc']}\n")
+                f.write(f"Date: {email_data['date']}\n")
+                f.write(f"Email Addresses: {', '.join(email_data['email_addresses'])}\n")
+                f.write("\n--- TEXT CONTENT ---\n")
+                f.write(email_data['content']['text'])
+                f.write("\n\n--- HTML CONTENT ---\n")
+                f.write(email_data['content']['html'])
+                f.write("\n\n--- ATTACHMENTS ---\n")
+                for attachment in email_data['attachments']:
+                    f.write(f"Filename: {attachment['filename']}\n")
+                    f.write(f"Path: {attachment['path']}\n")
+                    f.write(f"Content-Type: {attachment['content_type']}\n\n")
+            
+            # Save the raw email
+            raw_email_file = os.path.join(mailbox_dir, f"raw_email_{email_id_str}.eml")
+            with open(raw_email_file, 'wb') as f:
+                f.write(raw_email)
+            
+            self.logger.success(f"    Saved email data to {email_file}")
+            self.logger.success(f"    Saved raw email to {raw_email_file}")
+            
+        except Exception as e:
+            self.logger.error(f"Error saving email {email_id_str}: {str(e)}")
 
     def extract_user_info(self):
         """Extract user information from emails"""
@@ -448,6 +539,11 @@ class ImapRecon:
 
 
 def main():
+    """Main function to run the IMAP reconnaissance tool"""
+    # Print the banner
+    print_banner()
+    
+    # Parse command line arguments
     parser = argparse.ArgumentParser(description='IMAP Reconnaissance Tool')
     parser.add_argument('-H', '--host', required=True, help='IMAP server hostname or IP')
     parser.add_argument('-p', '--port', type=int, default=143, help='IMAP server port (default: 143)')
@@ -456,8 +552,14 @@ def main():
     parser.add_argument('-s', '--ssl', action='store_true', help='Use SSL/TLS')
     parser.add_argument('-o', '--output', help='Output directory (default: imap_recon_output)')
     parser.add_argument('-k', '--keywords', nargs='+', help='Keywords to search for in emails')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
+    parser.add_argument('--no-color', action='store_true', help='Disable colored output')
     
     args = parser.parse_args()
+    
+    # Disable colors if requested
+    if args.no_color:
+        init(autoreset=True, strip=True)
     
     # Initialize the ImapRecon class
     recon = ImapRecon(
@@ -466,7 +568,8 @@ def main():
         username=args.username,
         password=args.password,
         ssl=args.ssl,
-        output_dir=args.output
+        output_dir=args.output,
+        verbose=args.verbose
     )
     
     # Run reconnaissance
@@ -474,4 +577,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n" + Fore.YELLOW + "[!] IMAP reconnaissance interrupted" + Style.RESET_ALL)
+        sys.exit(0)
