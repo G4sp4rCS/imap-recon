@@ -14,6 +14,12 @@ IMAP-RECON is a comprehensive IMAP (Internet Message Access Protocol) reconnaiss
 - **Keyword Search**: Find emails containing specific keywords
 - **Detailed Reporting**: Generate summary reports of findings
 
+## Screenshot
+
+![](img.png)
+
+
+
 ## Installation 🛠️
 
 ### Prerequisites
